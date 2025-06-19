@@ -4,7 +4,8 @@ const ctx = canvas.getContext('2d');
 // Game variables
 let score = 0;
 let lives = 3;
-let gameStarted = false;
+// let gameStarted = false; // Replaced by gameState
+let gameState = 'titleScreen'; // Possible states: 'titleScreen', 'playing', 'gameOver' (later)
 
 // Ball properties
 let x = canvas.width / 2;
@@ -44,12 +45,29 @@ document.addEventListener('keyup', keyUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
 
 function startGameOnClick() {
-    if (!gameStarted) { // Check if game hasn't started already
-        gameStarted = true;
-        // Optional: Set initial ball movement direction if it's not already set or needs to be dynamic
-        // dx = 2;
-        // dy = -2;
-        canvas.removeEventListener('click', startGameOnClick); // Remove listener after first click
+    if (gameState === 'titleScreen') {
+        gameState = 'playing';
+
+        // Initialize/reset game elements for a new game
+        x = canvas.width / 2;           // Ball x position
+        y = canvas.height - 30;         // Ball y position
+        dx = 2;                         // Ball horizontal speed
+        dy = -2;                        // Ball vertical speed
+        paddleX = (canvas.width - paddleWidth) / 2; // Paddle position
+        score = 0;                      // Reset score
+        lives = 3;                      // Reset lives
+
+        // Re-initialize bricks
+        for (let c = 0; c < brickColumnCount; c++) {
+            for (let r = 0; r < brickRowCount; r++) {
+                bricks[c][r].status = 1; // Reset all bricks to active
+            }
+        }
+
+        // canvas.removeEventListener('click', startGameOnClick); // Listener will be re-added if game ends and returns to title
+        // Let's keep removing it for now, and if a game over screen is implemented that doesn't reload,
+        // we might need to re-add it there. Reloading the page currently handles re-adding.
+        canvas.removeEventListener('click', startGameOnClick);
     }
 }
 canvas.addEventListener('click', startGameOnClick, false);
@@ -114,6 +132,21 @@ function drawPaddle() {
     ctx.closePath();
 }
 
+function drawTitleScreen() {
+    // ctx.clearRect(0, 0, canvas.width, canvas.height); // Clearing is now done at the start of draw()
+
+    // Draw Title
+    ctx.font = '48px Arial';
+    ctx.fillStyle = '#0095DD';
+    ctx.textAlign = 'center';
+    ctx.fillText('Block Breaker', canvas.width / 2, canvas.height / 2 - 30);
+
+    // Draw Prompt
+    ctx.font = '24px Arial';
+    ctx.fillStyle = '#333';
+    ctx.fillText('Click to Start', canvas.width / 2, canvas.height / 2 + 20);
+}
+
 function drawBricks() {
     for (let c = 0; c < brickColumnCount; c++) {
         for (let r = 0; r < brickRowCount; r++) {
@@ -141,14 +174,16 @@ function drawLives() {
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    drawBricks();
-    drawBall();
-    drawPaddle();
-    drawScore();
-    drawLives();
+    ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear canvas each frame
 
-    if (gameStarted) {
+    if (gameState === 'playing') {
+        drawBricks();
+        drawBall();
+        drawPaddle();
+        drawScore();
+        drawLives();
+        collisionDetection();
+
         // Ball movement
         if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
             dx = -dx;
@@ -157,34 +192,34 @@ function draw() {
             dy = -dy;
         } else if (y + dy > canvas.height - ballRadius) {
             if (x > paddleX && x < paddleX + paddleWidth) {
-                dy = -dy;
+                dy = -dy; // Bounce off paddle
             } else {
                 lives--;
                 if (!lives) {
                     alert('GAME OVER');
-                    document.location.reload(); // This will reset gameStarted via page reload
+                    document.location.reload(); // Resets to titleScreen via reload
                 } else {
-                    // Reset ball position, keep game going (gameStarted remains true)
+                    // Reset ball and paddle for next life, gameState remains 'playing'
                     x = canvas.width / 2;
                     y = canvas.height - 30;
-                    // dx = 2; // Optionally reset speed/direction
-                    // dy = -2;
                     paddleX = (canvas.width - paddleWidth) / 2;
                 }
             }
         }
-
         x += dx;
         y += dy;
 
-        collisionDetection(); // Handles score, win condition (which also reloads)
-    }
+        // Paddle movement
+        if (rightPressed && paddleX < canvas.width - paddleWidth) {
+            paddleX += 7;
+        } else if (leftPressed && paddleX > 0) {
+            paddleX -= 7;
+        }
 
-    // Paddle movement (should always be active)
-    if (rightPressed && paddleX < canvas.width - paddleWidth) {
-        paddleX += 7;
-    } else if (leftPressed && paddleX > 0) {
-        paddleX -= 7;
+    } else if (gameState === 'titleScreen') {
+        drawTitleScreen();
+        // No game elements drawn or game logic processed here.
+        // Paddle is not drawn, score/lives are not displayed.
     }
 
     requestAnimationFrame(draw);
