@@ -4,6 +4,7 @@ const ctx = canvas.getContext('2d');
 // Game variables
 let score = 0;
 let lives = 3;
+let gameStarted = false;
 
 // Ball properties
 let x = canvas.width / 2;
@@ -41,6 +42,17 @@ let leftPressed = false;
 document.addEventListener('keydown', keyDownHandler, false);
 document.addEventListener('keyup', keyUpHandler, false);
 document.addEventListener("mousemove", mouseMoveHandler, false);
+
+function startGameOnClick() {
+    if (!gameStarted) { // Check if game hasn't started already
+        gameStarted = true;
+        // Optional: Set initial ball movement direction if it's not already set or needs to be dynamic
+        // dx = 2;
+        // dy = -2;
+        canvas.removeEventListener('click', startGameOnClick); // Remove listener after first click
+    }
+}
+canvas.addEventListener('click', startGameOnClick, false);
 
 
 function keyDownHandler(e) {
@@ -135,31 +147,40 @@ function draw() {
     drawPaddle();
     drawScore();
     drawLives();
-    collisionDetection();
 
-    if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
-        dx = -dx;
-    }
-    if (y + dy < ballRadius) {
-        dy = -dy;
-    } else if (y + dy > canvas.height - ballRadius) {
-        if (x > paddleX && x < paddleX + paddleWidth) {
+    if (gameStarted) {
+        // Ball movement
+        if (x + dx > canvas.width - ballRadius || x + dx < ballRadius) {
+            dx = -dx;
+        }
+        if (y + dy < ballRadius) {
             dy = -dy;
-        } else {
-            lives--;
-            if (!lives) {
-                alert('GAME OVER');
-                document.location.reload();
+        } else if (y + dy > canvas.height - ballRadius) {
+            if (x > paddleX && x < paddleX + paddleWidth) {
+                dy = -dy;
             } else {
-                x = canvas.width / 2;
-                y = canvas.height - 30;
-                dx = 2;
-                dy = -2;
-                paddleX = (canvas.width - paddleWidth) / 2;
+                lives--;
+                if (!lives) {
+                    alert('GAME OVER');
+                    document.location.reload(); // This will reset gameStarted via page reload
+                } else {
+                    // Reset ball position, keep game going (gameStarted remains true)
+                    x = canvas.width / 2;
+                    y = canvas.height - 30;
+                    // dx = 2; // Optionally reset speed/direction
+                    // dy = -2;
+                    paddleX = (canvas.width - paddleWidth) / 2;
+                }
             }
         }
+
+        x += dx;
+        y += dy;
+
+        collisionDetection(); // Handles score, win condition (which also reloads)
     }
 
+    // Paddle movement (should always be active)
     if (rightPressed && paddleX < canvas.width - paddleWidth) {
         paddleX += 7;
     } else if (leftPressed && paddleX > 0) {
